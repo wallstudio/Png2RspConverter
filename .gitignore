@@ -7,3 +7,9 @@
 
 # Local History for Visual Studio Code
 .history/
+
+bin/
+obj/
+
+2D-Maki.rsp
+.tmp/
