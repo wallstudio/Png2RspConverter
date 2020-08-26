@@ -11,13 +11,14 @@ namespace Png2RspConverter
     public class RSPObject
     {
         const string TMP_DIRECTORY_PATH = ".tmp/";
+        const string INFO_JSON_FILE_NAME = "info.json";
         static readonly byte[] RSP_SIGNATURE = new byte[]{ 0x52, 0x53, 0x70, 0x65, 0x61, 0x6B, 0x65, 0x72, 0x1D, 0x00, 0x00, 0x00, };
         static readonly byte[] START_CONTENT_LIST_SIGNATURE = new byte[]{ 0x00, 0x01, 0x00, 0x00, };
         static readonly byte[] START_CONTENT_SIGNATURE = new byte[]{ 0x7F, 0x21, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, };
         
 
-        public readonly PackerInfo PackerInfo;
-        public readonly List<ContentFileInfo> ContentFileInfos;
+        public readonly PackerInfo PackerInfo = new PackerInfo();
+        public readonly List<ContentFileInfo> ContentFileInfos = new List<ContentFileInfo>();
         public readonly Dictionary<string, (byte[] raw, object obj)> Contents = new Dictionary<string, (byte[], object)>();
 
         public RSPObject(string rspFile)
@@ -25,7 +26,7 @@ namespace Png2RspConverter
             using(Stream stream = new FileStream(rspFile, FileMode.Open, FileAccess.Read))
             {
                 var rspSignature = new byte[RSP_SIGNATURE.Length];
-                stream.Read(rspSignature, 0, RSP_SIGNATURE.Length);
+                stream.Read(rspSignature);
                 if (!RSP_SIGNATURE.SequenceEqual(rspSignature)) throw new InvalidDataException($"Invalid SIG");
         
                 PackerInfo = Deserialize<PackerInfo>((TakeWhileSequenceEqual(stream, START_CONTENT_LIST_SIGNATURE)));
@@ -39,7 +40,7 @@ namespace Png2RspConverter
                 {
                     var buff = new byte[contentFileInfo.FileSize];
                     stream.Position = origin + contentFileInfo.StartOffset;
-                    stream.Read(buff, 0, buff.Length);
+                    stream.Read(buff);
                     switch(Path.GetExtension(contentFileInfo.Name))
                     {
                         case ".json":
@@ -56,6 +57,28 @@ namespace Png2RspConverter
                             break;
                     }
                 }
+            }
+        }
+
+        public RSPObject(string name, (string en, string ja) displayName, (string en, string ja) displayDescription, IEnumerable<string> copyrights,
+            string thumbnailFilePath, IEnumerable<string> imageFilePaths,
+            IEnumerable<MetaData.ActionData> actions, string defaultAction, string initialAction)
+        {
+            var offset = 0;
+
+            var metaData = new MetaData(
+                name, displayName, displayDescription, copyrights,
+                thumbnailFilePath, imageFilePaths, actions, defaultAction, initialAction);
+            Contents[INFO_JSON_FILE_NAME] = (Serialize<MetaData>(metaData), metaData);
+            ContentFileInfos.Add(new ContentFileInfo(INFO_JSON_FILE_NAME, Contents[INFO_JSON_FILE_NAME].raw, offset));
+            offset += Contents[INFO_JSON_FILE_NAME].raw.Length;
+
+            foreach (var imagePath in imageFilePaths)
+            {
+                var fileName = Path.GetFileName(imagePath);
+                Contents[fileName] = (File.ReadAllBytes(imagePath), null);
+                ContentFileInfos.Add(new ContentFileInfo(imagePath, offset));
+                offset += Contents[fileName].raw.Length;
             }
         }
 
@@ -135,7 +158,7 @@ namespace Png2RspConverter
                 serializer.WriteObject(stream, obj);
                 var buff = new byte[stream.Position];
                 stream.Position = 0;
-                stream.Read(buff, 0, buff.Length);
+                stream.Read(buff);
                 return buff;
             }
         }
