@@ -6,42 +6,201 @@
     <title>Png2RspConverter</title>
 </head>
 
-<body>
+<body style="background-color: #EEEEEE;">
     <script src="main.js"></script>
     <script>
-        async function run()
+        async function addAction()
         {
-            let thumbnail = document.getElementById("thumbnail").files[0];
-            let images = document.getElementById("images").files
-            const rsp = new RSPObject();
-            await rsp.init(
-                "2D-VFlower", // name: string,
-                new MultiLanguageText("2D-v_flower", "2D-花ちゃん"), // displayName: MultiLanguageText,
-                new MultiLanguageText("_", "うぷはしのテスト！"), // displayDescription: MultiLanguageText,
-                ["うぷはし"], // copyrights: string[],
-                thumbnail, // thumbnailFile: File,
-                new ActionInfo("kiri", new MultiLanguageText("kiri", "キリッ"), images[0], images[1], images[2]),
-                new ActionInfo("aho", new MultiLanguageText("aho", "あほ"), images[3], images[4]),
-                [
-                    new ActionInfo("normal", new MultiLanguageText("normal", "ノーマル"), images[5]),
-                    new ActionInfo("normal2", new MultiLanguageText("normal2", "ノーマル2"), images[6]),
-                ]);
-            let file = rsp.save("2D-VFlower.rsp");
-            document.getElementById("save").href = URL.createObjectURL(file);
-            document.getElementById("save").download = file.name;
+            const actions = document.getElementsByClassName("action");
+            const last = actions[actions.length - 1];
+            const parent = last.parentElement;
+            const newAction = last.cloneNode(true);
+            newAction.innerHTML = last.innerHTML;
+            parent.appendChild(newAction);
 
-            let reader = new FileReader();
-            reader.addEventListener("onload", () => document.getElementById("thumbnail_preview").src = reader.result);
-            reader.readAsDataURL(thumbnail);
-
-            console.log(rsp);
+            const fileInputs = Array.from(document.getElementsByTagName("input")).filter(e => e.type == "file");
+            fileInputs.forEach(setImage);
         }
+
+        async function deleteAction()
+        {
+            const actions = document.getElementsByClassName("action");
+            const last = actions[actions.length - 1];
+            const parent = last.parentElement;
+            parent.removeChild(last);
+        }
+
+        async function setImage(element)
+        {
+            if(element.files.length == 0)
+            {
+                if(element.style.backgroundImage)
+                {
+                    const match = element.style.backgroundImage.match(/^url\(([^\)]+)\)/)[1];
+                    if(match)
+                    {
+                        URL.revokeObjectURL(match[1]);
+                        element.style.backgroundImage = "";
+                    }
+                }
+                return;
+            }
+
+            const reader = new FileReader();
+            const promise = new Promise(r => reader.addEventListener("load", r));
+            reader.readAsDataURL(element.files[0]);
+            await promise;
+            element.style.backgroundImage = `url(${reader.result})`;
+        }
+
+        async function build()
+        {
+            const thumbnail = document.getElementById("thumbnail").files[0];
+            const name_id = document.getElementsByClassName("name_id")[0].value;
+            const name_en = document.getElementsByClassName("name_en")[0].value;
+            const name_ja = document.getElementsByClassName("name_ja")[0].value;
+            const comment_en = document.getElementsByClassName("comment_en")[0].value;
+            const comment_ja = document.getElementsByClassName("comment_ja")[0].value;
+            const copyrights = document.getElementsByClassName("copyrights")[0].value.split(",");
+
+            const actions = Array.from(document.getElementsByClassName("action")).map(elem => 
+            {
+                const _is_default = elem.getElementsByClassName("is_default")[0].checked;
+                const _is_initial = elem.getElementsByClassName("is_initial")[0].checked;
+                const _name_id = elem.getElementsByClassName("name_id")[0].value;
+                const _name_en = elem.getElementsByClassName("name_en")[0].value;
+                const _name_ja = elem.getElementsByClassName("name_ja")[0].value;
+                const _open_mouse = elem.getElementsByClassName("open_mouse")[0].files[0];
+                const _close_mouse = elem.getElementsByClassName("close_mouse")[0].files[0];
+                const _close_eye = elem.getElementsByClassName("close_eye")[0].files[0];
+                return {
+                    is_default : _is_default,
+                    is_initial : _is_initial,
+                    info : new ActionInfo(name_id, new MultiLanguageText(_name_en, _name_ja), _open_mouse, _close_mouse, _close_eye)
+                }
+            });
+            console.log(actions);
+            const defaultAction = actions.find(a => a.is_default);
+            const initialAction = actions.find(a => a.is_initial);
+            const otherAction = actions.filter(a => a != defaultAction && a != initialAction);
+
+            try
+            {
+                const rsp = new RSPObject();
+                await rsp.init(
+                    name_id, // name: string,
+                    new MultiLanguageText(name_en, name_en), // displayName: MultiLanguageText,
+                    new MultiLanguageText(comment_en, comment_en), // displayDescription: MultiLanguageText,
+                    copyrights, // copyrights: string[],
+                    thumbnail, // thumbnailFile: File,
+                    defaultAction.info,
+                    initialAction?.info,
+                    otherAction.map(a => a.info));
+                console.log(rsp);
+                let file = rsp.save(name_id + ".rsp");
+                document.getElementById("save").download = file.name;
+                URL.revokeObjectURL(document.getElementById("save").href);
+                document.getElementById("save").href = URL.createObjectURL(file);
+            }
+            catch(e)
+            {
+                console.log(e);
+                alert(e);
+            }
+        }
+    
+        window.addEventListener("load", () =>
+        {
+            const fileInputs = Array.from(document.getElementsByTagName("input")).filter(e => e.type == "file");
+            fileInputs.forEach(setImage);
+        });
     </script>
 
-    <input type="file" id="thumbnail" accept=".png">
-    <input type="file" multiple="multiple" id="images" accept=".png">
-    <button onclick="run()">RUN</button>
-    <a id="save"><button>SAVE</button></a>
+    <style>
+        div.action:nth-child(odd)
+        {
+            background-color: #E0E0E0EE;
+        }
+        div.action:nth-child(even)
+        {
+            background-color: #EEEEEE;
+        }
+        .image_select
+        {
+            margin: 10px;
+        }
+        .image_file
+        {
+            height: 150px;
+            width: 150px;
+            background-size: contain;
+            background-color: #CCCCCC;
+            /* background-image: url("upload.svg"); */
+        }
+    </style>
+
+    <h1>Png2RspConverter</h1>
+    <a href="https://twitter.com/yukawallstudio">@yukawallstudio</a>
+    <form style="background-color: #F0F0F0;">
+        <p>
+            name<input class="name_id" type="text" value="2D-Character"></input>
+        </p>
+        <p>
+            name_en<input class="name_en" type="text" value="2D-Character"></input>
+            name_ja<input class="name_ja" type="text" value="2D-キャラクター"></input></p>
+        </p>
+        <p>
+            comment_en<input class="comment_en" type="text" value="Comment"></input>
+            comment_ja<input class="comment_ja" type="text" value="コメント"></input></p>
+        </p>
+        <p>
+            copyrights<input class="copyrights" type="text" value="うぷはし"></input>
+        </p>
+            thumbnail<input type="file" id="thumbnail" class="image_file" accept=".png" onchange="setImage(this)"></input>
+        <p>
+        </p>
+
+        <div class="actions">
+            <div class="action" style="overflow: hidden;">
+                <div>
+                    is_default<input name="is_default" class="is_default" type="radio" value="true"></input>
+                    is_initial<input name="is_initial" class="is_initial" type="radio"></input>
+                </div>
+                <div>
+                    name<input class="name_id" type="text" value="idle"></input>
+                    name_en<input class="name_en" type="text" value="idle"></input>
+                    name_ja<input class="name_ja" type="text" value="待機"></input>
+                </div>
+                <div>
+                    <div class="image_select" style="display:inline; float: left;">
+                        open_mouse<br />
+                        <input class="open_mouse image_file" type="file" class="action_images" accept=".png" onchange="setImage(this)"></input>
+                        
+                    </div>
+                    <div class="image_select" style="display:inline; float: left;">
+                        close_mouse<br />
+                        <input class="close_mouse image_file" type="file" class="action_images" accept=".png" onchange="setImage(this)"></input>
+                        
+                    </div>
+                    <div class="image_select" style="display:inline; float: left;">
+                        close_eye<br />
+                        <input class="close_eye image_file" type="file" class="action_images" accept=".png" onchange="setImage(this)"></input>
+                        
+                    </div>
+                </div>
+            
+            </div>
+        </div>
+
+    </form>
+    <p>
+        <button onclick="addAction()">+ ADD ACTION</button>
+        <button onclick="deleteAction()">- DELETE ACTION</button>
+    </p>
+    <p>
+        <button onclick="build()">BUILD</button>
+        <a id="save"><button>SAVE</button></a>
+    </p>
 </body>
 
 </html>
