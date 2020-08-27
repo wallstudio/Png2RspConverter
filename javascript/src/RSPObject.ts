@@ -6,7 +6,6 @@ export class PackerInfo
 	public version: Number = 1;
 	public encrypt: Boolean = false;
 }
-(window as any).PackerInfo = PackerInfo;
 
 export class ContentFileInfo
 { 
@@ -15,27 +14,14 @@ export class ContentFileInfo
 	public s: number;
 	public f: number;
 
-	constructor(_file: File, startOffsetWithoutOrigin: number)
 	constructor(_file: [string, ArrayBuffer], startOffsetWithoutOrigin: number)
-	constructor(_file: any, startOffsetWithoutOrigin: number)
 	{
-		if(_file instanceof File)
-		{
-			let file = _file as File;
-			this.p = file.name;
-			this.o = startOffsetWithoutOrigin;
-			this.s = this.f = file.size;
-		}
-		else
-		{
-			let [name, bin] = _file as [string, ArrayBuffer];
-			this.p = name;
-			this.o = startOffsetWithoutOrigin;
-			this.s = this.f = bin.byteLength;
-		}
+		const [name, bin] = _file as [string, ArrayBuffer];
+		this.p = name;
+		this.o = startOffsetWithoutOrigin;
+		this.s = this.f = bin.byteLength;
 	}
 }
-(window as any).ContentFileInfo = ContentFileInfo;
 
 export class MultiLanguageText
 {
@@ -59,7 +45,6 @@ export class ImageIndex
 		this.index = index;
 	}
 }
-(window as any).ImageIndex = ImageIndex;
 
 export class ActionData extends TSMap<string, any>
 {
@@ -78,13 +63,12 @@ export class ActionData extends TSMap<string, any>
 		this.set("c", new ImageIndex(closeEye));
 	}
 }
-(window as any).ActionData = ActionData;
 
 export class MetaData extends TSMap<string, any>
 {
 	constructor(
 		name: string, displayName: MultiLanguageText, displayDescription: MultiLanguageText, copyrights: string[],
-		imageFiles: File[], imageSize: number[], actions: ActionData[], defaultAction: string, initialAction: string)
+		imageFiles: [string, ArrayBuffer][], imageSize: number[], actions: ActionData[], defaultAction: string, initialAction: string)
 	{
 		super();
 		if(!displayName) return;
@@ -93,7 +77,7 @@ export class MetaData extends TSMap<string, any>
 		this.set("display-name", displayName);
 		this.set("display-desc", displayDescription);
 		this.set("copyrights", copyrights);
-		this.set("image-files", Array.from(imageFiles).map((e, i, a) => e.name));
+		this.set("image-files", Array.from(imageFiles).map(img => img[0]));
 		this.set("image-size", imageSize);
 		this.set("default-action", defaultAction);
 		this.set("initial-action", initialAction);
@@ -102,18 +86,62 @@ export class MetaData extends TSMap<string, any>
 
 	public async loadThumbnail(thumbnailFile: File)
 	{
-		let reader = new FileReader();
-		let promise = new Promise(r => reader.addEventListener("load", () => r()));
+		const reader = new FileReader();
+		const promise = new Promise(r => reader.addEventListener("load", () => r()));
 		reader.readAsDataURL(thumbnailFile);
 		await promise;
-		let url = reader.result as string;
+		const url = reader.result as string;
 		this.set("thumbnail-img", url.replace("data:image/png;base64,", ""));
 	}
 }
-(window as any).MetaData = MetaData;
+
+export class ActionInfo
+{
+	name: string;
+	displayName: MultiLanguageText;
+	openMouse: File;
+	closeMouse: File;
+	closeEye: File;
+
+	constructor(name: string, displayName: MultiLanguageText, openMouse: File, closeMouse: File | null = null, closeEye: File | null = null)
+	{
+		this.name = name;
+		this.displayName = displayName;
+		this.openMouse = openMouse;
+		this.closeMouse = closeMouse ?? openMouse;
+		this.closeEye = closeEye ?? openMouse;
+	}
+
+	public async getActionData(actionIndex: number) : Promise<[ActionData, [string, ArrayBuffer][]]>
+	{
+		const action = new ActionData(this.name, this.displayName, actionIndex * 3, actionIndex * 3 + 1, actionIndex * 3 + 2);
+		const files = [this.openMouse, this.closeMouse, this.closeEye];
+		const namedBuffers = files.map<Promise<[string, ArrayBuffer]>>(async (f, i) => [`${this.name}_${i}__${f.name}`, await f.arrayBuffer()]);
+		return [action, await Promise.all(namedBuffers)];
+	}
+
+	public async getImageSize() : Promise<[number, number]>
+	{
+		const files = [this.openMouse, this.closeMouse, this.closeEye];
+		const sizes = new Set(await Promise.all(files.map(async f =>
+		{
+			const image = new Image();
+			const promise = new Promise(r => image.onload = () => r());
+			image.src = URL.createObjectURL(f);
+			await promise;
+			const size = [image.naturalWidth, image.naturalHeight];
+			URL.revokeObjectURL(image.src);
+			return size;
+		})));
+		if(sizes.size != 1) throw new Error(`異なる画像サイズの混在 ${name}`)
+		return sizes.values().next().value;
+	}
+} 
+(window as any).ActionInfo = ActionInfo;
 
 export class RSPObject
 {
+
 	INFO_JSON_FILE_NAME: string = "info.json";
 	RSP_SIGNATURE: Uint8Array = new Uint8Array([0x52, 0x53, 0x70, 0x65, 0x61, 0x6B, 0x65, 0x72]); // "RSpeaker"
 
@@ -122,51 +150,56 @@ export class RSPObject
 	public metaData?: MetaData;
 	public contents: Map<string, [ArrayBuffer, any]> = new Map<string, [ArrayBuffer, any]>();
 
-	public async init(name: string, displayName: MultiLanguageText, displayDescription: MultiLanguageText, copyrights: string[],
-		thumbnailFile: File, imageFiles: File[],
-		actions: ActionData[], defaultAction: string, initialAction: string) : Promise<any>
+	public async init(name: string, displayName: MultiLanguageText, displayDescription: MultiLanguageText, copyrights: string[], thumbnailFile: File,
+		defaultAction: ActionInfo, _initialAction: ActionInfo | null, otherActions: ActionInfo[]) : Promise<any>
 	{
 		let offset = 0;
 
-		
+		// calc size
+		const initialAction = _initialAction ?? defaultAction;
+		const actionInfos = [defaultAction, initialAction].concat(otherActions);
+		const sizes = new Set(await Promise.all(actionInfos.map(a => a.getImageSize)));
+		if(sizes.size != 1) throw new Error(`異なる画像サイズの混在`);
+		const size = sizes.values().next().value;
+
+		// meta json
+		const actionsAndImages = await Promise.all(actionInfos.map((act, i) => act.getActionData(i)));
 		this.metaData = new MetaData(
 			name, displayName, displayDescription, copyrights,
-			imageFiles, await RSPObject.getImageSize(imageFiles[0]),
-			actions, defaultAction, initialAction);
+			actionsAndImages.flatMap(ai => ai[1]), size,
+			actionsAndImages.map(ai => ai[0]), defaultAction.name, initialAction.name);
 		await this.metaData.loadThumbnail(thumbnailFile);
 
-		let bin = RSPObject.toByte(this.metaData);
-		this.contents.set(this.INFO_JSON_FILE_NAME, [bin, this.metaData]);
-		this.contentFileInfos.push(new ContentFileInfo([this.INFO_JSON_FILE_NAME, bin], 0));
+		const metaBin = RSPObject.toByte(this.metaData);
+		this.contents.set(this.INFO_JSON_FILE_NAME, [metaBin, this.metaData]);
+		this.contentFileInfos.push(new ContentFileInfo([this.INFO_JSON_FILE_NAME, metaBin], 0));
 		offset += this.contents.get(this.INFO_JSON_FILE_NAME)?.[0].byteLength as number;
 
-		for (let i = 0; i < imageFiles.length; i++)
+		// images
+		for (const [name, buff] of actionsAndImages.flatMap(ai => ai[1]))
 		{
-			let image = imageFiles[i];
-			let fileName = image.name;
-			var buff = await image.arrayBuffer();
-			this.contents.set(image.name, [buff, null]);
-			this.contentFileInfos.push(new ContentFileInfo(image, offset));
-			offset += this.contents.get(fileName)?.[0].byteLength as number;
+			this.contents.set(name, [buff, null]);
+			this.contentFileInfos.push(new ContentFileInfo([name, buff], offset));
+			offset += this.contents.get(name)?.[0].byteLength as number;
 		}
 	}
 
 	public save(name: string) : File
 	{
-		let packerInfoBin = RSPObject.toByte(this.packerInfo);
-		let packerInfoBinSizeBuff = new ArrayBuffer(4);
+		const packerInfoBin = RSPObject.toByte(this.packerInfo);
+		const packerInfoBinSizeBuff = new ArrayBuffer(4);
 		new DataView(packerInfoBinSizeBuff).setUint32(0, packerInfoBin.byteLength, true);
 
-		let contentFileInfoBin = RSPObject.toByte(this.contentFileInfos);
-		let contentFileInfoBinSizeBuff = new ArrayBuffer(4);
+		const contentFileInfoBin = RSPObject.toByte(this.contentFileInfos);
+		const contentFileInfoBinSizeBuff = new ArrayBuffer(4);
 		new DataView(contentFileInfoBinSizeBuff).setUint32(0, contentFileInfoBin.byteLength, true);
 
-		let contentFileInfoBins = Array.from(this.contents.values()).map(t => t[0]);
-		let contentFileInfoBinsSizeBuff = new ArrayBuffer(8);
-		let totalSize = contentFileInfoBins.map(e => e.byteLength).reduce((a, b) => a + b);
+		const contentFileInfoBins = Array.from(this.contents.values()).map(t => t[0]);
+		const contentFileInfoBinsSizeBuff = new ArrayBuffer(8);
+		const totalSize = contentFileInfoBins.map(e => e.byteLength).reduce((a, b) => a + b);
 		new DataView(contentFileInfoBinsSizeBuff).setUint32(0, totalSize, true); // 4.2GBの壁あり
 
-		let file = new File([
+		const file = new File([
 			this.RSP_SIGNATURE,
 			packerInfoBinSizeBuff, packerInfoBin,
 			contentFileInfoBinSizeBuff, contentFileInfoBin,
@@ -174,19 +207,28 @@ export class RSPObject
 		return file;
 	}
 
-	static async getImageSize(file: File) : Promise<number[]>
-	{
-		let image = new Image();
-		let promise = new Promise(r => image.onload = () => r());
-		image.src = URL.createObjectURL(file);
-		await promise;
-		return [image.naturalWidth, image.naturalHeight];
-	}
-
 	static toByte(graph: any): Uint8Array
 	{
-		let json = JSON.stringify(graph);
+		const json = JSON.stringify(graph);
 		return new TextEncoder().encode(json);
 	}
 }
 (window as any).RSPObject = RSPObject;
+
+async function TestRSPObject()
+{
+	const rsp = new RSPObject();
+	await rsp.init(
+		"2D-VFlower", // name: string,
+		new MultiLanguageText("2D-v_flower", "2D-花ちゃん"), // displayName: MultiLanguageText,
+		new MultiLanguageText("_", "うぷはしのテスト！"), // displayDescription: MultiLanguageText,
+		["うぷはし"], // copyrights: string[],
+		(new Object as File), // thumbnailFile: File,
+		new ActionInfo("kiri", new MultiLanguageText("kiri", "キリッ"), (new Object as File), (new Object as File), (new Object as File)),
+		new ActionInfo("aho", new MultiLanguageText("aho", "あほ"), (new Object as File), (new Object as File)),
+		[
+			new ActionInfo("normal", new MultiLanguageText("normal", "ノーマル"), (new Object as File)),
+			new ActionInfo("normal2", new MultiLanguageText("normal2", "ノーマル2"), (new Object as File)),
+		]);
+	let file = rsp.save("hoge.rsp");
+};

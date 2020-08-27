@@ -13,21 +13,19 @@
         {
             let thumbnail = document.getElementById("thumbnail").files[0];
             let images = document.getElementById("images").files
-            let rsp = new RSPObject();
+            const rsp = new RSPObject();
             await rsp.init(
                 "2D-VFlower", // name: string,
                 new MultiLanguageText("2D-v_flower", "2D-花ちゃん"), // displayName: MultiLanguageText,
-                new MultiLanguageText("", "うぷはしのテスト！"), // displayDescription: MultiLanguageText,
-                ["うぷはし"], // copyrights: Array<string>,
+                new MultiLanguageText("_", "うぷはしのテスト！"), // displayDescription: MultiLanguageText,
+                ["うぷはし"], // copyrights: string[],
                 thumbnail, // thumbnailFile: File,
-                images, // imageFiles: Array<File>,
+                new ActionInfo("kiri", new MultiLanguageText("kiri", "キリッ"), images[0], images[1], images[2]),
+                new ActionInfo("aho", new MultiLanguageText("aho", "あほ"), images[3], images[4]),
                 [
-                    new ActionData("kiri", new MultiLanguageText("kiri", "キリッ"), 0, 0, 0),
-                ], // actions: Array<ActionData>,
-                "kiri", // defaultAction: string,
-                "kiri" //initialAction: string
-            )
-            console.log(rsp);
+                    new ActionInfo("normal", new MultiLanguageText("normal", "ノーマル"), images[5]),
+                    new ActionInfo("normal2", new MultiLanguageText("normal2", "ノーマル2"), images[6]),
+                ]);
             let file = rsp.save("2D-VFlower.rsp");
             document.getElementById("save").href = URL.createObjectURL(file);
             document.getElementById("save").download = file.name;
@@ -35,6 +33,8 @@
             let reader = new FileReader();
             reader.addEventListener("onload", () => document.getElementById("thumbnail_preview").src = reader.result);
             reader.readAsDataURL(thumbnail);
+
+            console.log(rsp);
         }
     </script>
 
