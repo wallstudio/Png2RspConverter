@@ -1,5 +1,25 @@
 import { TSMap } from "typescript-map"
 
+function distinct<T>(array: T[], hashSelector: (item: T) => string) : T[]
+{
+	const buff = new Array<T>();
+	for (const item of array)
+	{
+		if(buff.length == 0)
+		{
+			buff.push(item);
+			continue;
+		}
+		for (const inBuff of buff)
+		{
+			if(hashSelector(item) != hashSelector(inBuff))
+			{
+				buff.push(item);
+			}	
+		}
+	}
+	return buff;
+}
 
 export class PackerInfo
 {
@@ -116,14 +136,14 @@ export class ActionInfo
 	{
 		const action = new ActionData(this.name, this.displayName, actionIndex * 3, actionIndex * 3 + 1, actionIndex * 3 + 2);
 		const files = [this.openMouse, this.closeMouse, this.closeEye];
-		const namedBuffers = files.map<Promise<[string, ArrayBuffer]>>(async (f, i) => [`${this.name}_${i}__${f.name}`, await f.arrayBuffer()]);
+		const namedBuffers = files.map<Promise<[string, ArrayBuffer]>>(async (f, i) => [`${this.name}_${i}__${f.name}`, await f.arrayBuffer()]); // 強制敵にユニークにする
 		return [action, await Promise.all(namedBuffers)];
 	}
 
 	public async getImageSize() : Promise<[number, number]>
 	{
 		const files = [this.openMouse, this.closeMouse, this.closeEye];
-		const sizes = new Set(await Promise.all(files.map(async f =>
+		const sizes = distinct(await Promise.all(files.map(async f =>
 		{
 			const image = new Image();
 			const promise = new Promise(r => image.onload = () => r());
@@ -132,8 +152,8 @@ export class ActionInfo
 			const size = [image.naturalWidth, image.naturalHeight];
 			URL.revokeObjectURL(image.src);
 			return size;
-		})));
-		if(sizes.size != 1) throw new Error(`異なる画像サイズの混在 ${name}`)
+		})), JSON.stringify);
+		if(sizes.length != 1) throw new Error(`異なる画像サイズの混在 ${name} ${Array.from(sizes).join("|")}`)
 		return sizes.values().next().value;
 	}
 } 
@@ -151,15 +171,22 @@ export class RSPObject
 	public contents: Map<string, [ArrayBuffer, any]> = new Map<string, [ArrayBuffer, any]>();
 
 	public async init(name: string, displayName: MultiLanguageText, displayDescription: MultiLanguageText, copyrights: string[], thumbnailFile: File,
-		defaultAction: ActionInfo, _initialAction: ActionInfo | null, otherActions: ActionInfo[]) : Promise<any>
+		defaultAction: ActionInfo, initialAction: ActionInfo | null, otherActions: ActionInfo[]) : Promise<any>
 	{
 		let offset = 0;
 
+		let actionInfos = [];
+		actionInfos.push(defaultAction);
+		if(initialAction)
+		{
+			actionInfos.push(initialAction);
+		}
+		actionInfos = actionInfos.concat(otherActions);
+
 		// calc size
-		const initialAction = _initialAction ?? defaultAction;
-		const actionInfos = [defaultAction, initialAction].concat(otherActions);
-		const sizes = new Set(await Promise.all(actionInfos.map(a => a.getImageSize)));
-		if(sizes.size != 1) throw new Error(`異なる画像サイズの混在`);
+		actionInfos.forEach((act, i) => act.name = `${name}_${i}__${act.name}`); // 強制敵にユニークにする
+		const sizes = distinct(await Promise.all(actionInfos.map(async a => await a.getImageSize())), JSON.stringify);
+		if(sizes.length != 1) throw new Error(`異なる画像サイズの混在 ${Array.from(sizes).join("|")}`);
 		const size = sizes.values().next().value;
 
 		// meta json
@@ -167,7 +194,7 @@ export class RSPObject
 		this.metaData = new MetaData(
 			name, displayName, displayDescription, copyrights,
 			actionsAndImages.flatMap(ai => ai[1]), size,
-			actionsAndImages.map(ai => ai[0]), defaultAction.name, initialAction.name);
+			actionsAndImages.map(ai => ai[0]), defaultAction.name, (initialAction ?? defaultAction).name);
 		await this.metaData.loadThumbnail(thumbnailFile);
 
 		const metaBin = RSPObject.toByte(this.metaData);

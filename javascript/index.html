@@ -80,7 +80,7 @@
                 return {
                     is_default : _is_default,
                     is_initial : _is_initial,
-                    info : new ActionInfo(name_id, new MultiLanguageText(_name_en, _name_ja), _open_mouse, _close_mouse, _close_eye)
+                    info : new ActionInfo(_name_id, new MultiLanguageText(_name_en, _name_ja), _open_mouse, _close_mouse, _close_eye)
                 }
             });
             console.log(actions);
@@ -93,8 +93,8 @@
                 const rsp = new RSPObject();
                 await rsp.init(
                     name_id, // name: string,
-                    new MultiLanguageText(name_en, name_en), // displayName: MultiLanguageText,
-                    new MultiLanguageText(comment_en, comment_en), // displayDescription: MultiLanguageText,
+                    new MultiLanguageText(name_en, name_ja), // displayName: MultiLanguageText,
+                    new MultiLanguageText(comment_en, comment_ja), // displayDescription: MultiLanguageText,
                     copyrights, // copyrights: string[],
                     thumbnail, // thumbnailFile: File,
                     defaultAction.info,
