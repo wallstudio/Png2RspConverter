@@ -25,6 +25,10 @@
         async function deleteAction()
         {
             const actions = document.getElementsByClassName("action");
+            if(actions.length <= 1)
+            {
+                return;
+            }
             const last = actions[actions.length - 1];
             const parent = last.parentElement;
             parent.removeChild(last);
@@ -137,53 +141,70 @@
             background-color: #CCCCCC;
             /* background-image: url("upload.svg"); */
         }
+        .manual
+        {
+            background-color: #FFFFFF;
+            max-width: 800px;
+        }
     </style>
 
     <h1>Png2RspConverter</h1>
-    <a href="https://twitter.com/yukawallstudio">@yukawallstudio</a>
+    <div class="manual">
+        <h3>使い方</h3>
+        <p>
+            * フィールドを埋めて、「BUILD」→「SAVE」を押してください。（*の付いた項目は必須です）<br />
+            * アクションが、レコスタ内で差分として表示される単位になります。<br />
+            * 「+ADD ACTION」「-DELETE ACTION」を押すことで増減できます。<br />
+            * 画像はドラッグ&ドロップに対応しています。<br />
+            * <strong>ご利用は自己責任でよしなにどうぞ。</strong><br />
+        </p>
+        <a href="https://twitter.com/yukawallstudio">@yukawallstudio</a>
+    </div>
     <form style="background-color: #F0F0F0;">
+        <h3>ファイル情報</h3>
         <p>
-            name<input class="name_id" type="text" value="2D-Character"></input>
+            * 識別名（他のRSPと被らないように）<input class="name_id" type="text" value="2D-Character"></input>
         </p>
         <p>
-            name_en<input class="name_en" type="text" value="2D-Character"></input>
-            name_ja<input class="name_ja" type="text" value="2D-キャラクター"></input></p>
+            表示名（英語）<input class="name_en" type="text" value="2D-Character"></input>
+            表示名（日本語）<input class="name_ja" type="text" value="2D-キャラクター"></input></p>
         </p>
         <p>
-            comment_en<input class="comment_en" type="text" value="Comment"></input>
-            comment_ja<input class="comment_ja" type="text" value="コメント"></input></p>
+            コメント（英語）<input class="comment_en" type="text" value="Comment"></input>
+            コメント（日本語）<input class="comment_ja" type="text" value="コメント"></input></p>
         </p>
         <p>
-            copyrights<input class="copyrights" type="text" value="うぷはし"></input>
+            作者（&copy;/半角カンマ区切りで複数可）<input class="copyrights" type="text" value="うぷはし"></input>
         </p>
-            thumbnail<input type="file" id="thumbnail" class="image_file" accept=".png" onchange="setImage(this)"></input>
+            * サムネイル（100x100px）<input type="file" id="thumbnail" class="image_file" accept=".png" onchange="setImage(this)"></input>
         <p>
         </p>
 
+        <h3>アクションリスト</h3>
         <div class="actions">
             <div class="action" style="overflow: hidden;">
                 <div>
-                    is_default<input name="is_default" class="is_default" type="radio" value="true"></input>
-                    is_initial<input name="is_initial" class="is_initial" type="radio"></input>
+                    * デフォルト<input name="is_default" class="is_default" type="radio" value="true"></input>
+                    初期化時（?）<input name="is_initial" class="is_initial" type="radio"></input>
                 </div>
                 <div>
-                    name<input class="name_id" type="text" value="idle"></input>
-                    name_en<input class="name_en" type="text" value="idle"></input>
-                    name_ja<input class="name_ja" type="text" value="待機"></input>
+                    * 識別名<input class="name_id" type="text" value="idle"></input>
+                    表示名（英語）<input class="name_en" type="text" value="idle"></input>
+                    表示名（日本語）<input class="name_ja" type="text" value="待機"></input>
                 </div>
                 <div>
                     <div class="image_select" style="display:inline; float: left;">
-                        open_mouse<br />
+                        * メイン画像<br />
                         <input class="open_mouse image_file" type="file" class="action_images" accept=".png" onchange="setImage(this)"></input>
                         
                     </div>
                     <div class="image_select" style="display:inline; float: left;">
-                        close_mouse<br />
+                        口パクを閉じた画像<br />
                         <input class="close_mouse image_file" type="file" class="action_images" accept=".png" onchange="setImage(this)"></input>
                         
                     </div>
                     <div class="image_select" style="display:inline; float: left;">
-                        close_eye<br />
+                        瞬きの閉じた画像<br />
                         <input class="close_eye image_file" type="file" class="action_images" accept=".png" onchange="setImage(this)"></input>
                         
                     </div>
