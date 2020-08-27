@@ -71,8 +71,12 @@ namespace Png2RspConverter.Defines
             [DataMember(Name = "c", Order = 4)] public ImageIndex CloseEye;
 
             public ActionData() {}
-            public ActionData(string name, (string en, string ja) displayName, long openMouse, long closeMouse, long closeEye)
+            public ActionData(string name, (string en, string ja) displayName, long openMouse, long? closeMouse = null, long? closeEye = null)
             {
+                closeMouse = closeMouse ?? openMouse; // 口閉じ差分無し
+                closeEye = closeEye ?? openMouse; // 目閉じ差分なし
+                // 目閉じ＋口閉じは？？？
+
                 Name = name;
                 DisplayName = displayName;
                 OpenMouse = openMouse;
@@ -106,8 +110,6 @@ namespace Png2RspConverter.Defines
             Actions = actions.ToList();
 
             var sizes = imageFilePaths.Select(path => GetPngSize(path)).ToArray();
-            const long SIZE_LIMIT = 900;
-            if(sizes.First().w > SIZE_LIMIT || sizes.First().h > SIZE_LIMIT) throw new Exception("Larger than 900px");
             if(sizes.Distinct().Count() != 1) throw new Exception("Not some resolutions");
             ImageSize = new List<int>(){ sizes.First().w, sizes.First().h};
 

@@ -12,9 +12,7 @@ namespace Png2RspConverter
     {
         const string TMP_DIRECTORY_PATH = ".tmp/";
         const string INFO_JSON_FILE_NAME = "info.json";
-        static readonly byte[] RSP_SIGNATURE = new byte[]{ 0x52, 0x53, 0x70, 0x65, 0x61, 0x6B, 0x65, 0x72, 0x1D, 0x00, 0x00, 0x00, };
-        static readonly byte[] START_CONTENT_LIST_SIGNATURE = new byte[]{ 0x00, 0x01, 0x00, 0x00, };
-        static readonly byte[] START_CONTENT_SIGNATURE = new byte[]{ 0x7F, 0x21, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, };
+        static readonly byte[] RSP_SIGNATURE = new byte[]{ 0x52, 0x53, 0x70, 0x65, 0x61, 0x6B, 0x65, 0x72, }; // "RSpeaker"
         
 
         public readonly PackerInfo PackerInfo = new PackerInfo();
@@ -25,22 +23,20 @@ namespace Png2RspConverter
         {
             using(Stream stream = new FileStream(rspFile, FileMode.Open, FileAccess.Read))
             {
-                var rspSignature = new byte[RSP_SIGNATURE.Length];
-                stream.Read(rspSignature);
+                var rspSignature = ReadBytes(stream, RSP_SIGNATURE.Length);
                 if (!RSP_SIGNATURE.SequenceEqual(rspSignature)) throw new InvalidDataException($"Invalid SIG");
         
-                PackerInfo = Deserialize<PackerInfo>((TakeWhileSequenceEqual(stream, START_CONTENT_LIST_SIGNATURE)));
+                var packerInfoSize = ReadInt(stream);
+                PackerInfo = Deserialize<PackerInfo>(ReadBytes(stream, packerInfoSize));
                 if(PackerInfo.Encrypt) throw new Exception("Encrypted RSP");
-                stream.Seek(START_CONTENT_LIST_SIGNATURE.Length, SeekOrigin.Current);
-                ContentFileInfos = Deserialize<List<ContentFileInfo>>((TakeWhileSequenceEqual(stream, START_CONTENT_SIGNATURE)));
-                stream.Seek(START_CONTENT_SIGNATURE.Length, SeekOrigin.Current);
 
-                var origin = stream.Position;
+                var contentFileInfoSize = ReadInt(stream);
+                ContentFileInfos = Deserialize<List<ContentFileInfo>>(ReadBytes(stream, contentFileInfoSize));
+
+                var contentsSize = ReadLong(stream);
                 foreach (var contentFileInfo in ContentFileInfos)
                 {
-                    var buff = new byte[contentFileInfo.FileSize];
-                    stream.Position = origin + contentFileInfo.StartOffset;
-                    stream.Read(buff);
+                    var buff = ReadBytes(stream, contentFileInfo.FileSize);
                     switch(Path.GetExtension(contentFileInfo.Name))
                     {
                         case ".json":
@@ -102,11 +98,16 @@ namespace Png2RspConverter
                 stream.Position = 0;
 
                 stream.Write(RSP_SIGNATURE);
-                stream.Write(Serialize(PackerInfo));
-                stream.Write(START_CONTENT_LIST_SIGNATURE);
-                stream.Write(Serialize(ContentFileInfos));
-                stream.Write(START_CONTENT_SIGNATURE);
-
+                
+                var packerInfo = Serialize(PackerInfo);
+                stream.Write(BitConverter.GetBytes((int)packerInfo.Length));
+                stream.Write(packerInfo);
+                
+                var contentFileInfos = Serialize(ContentFileInfos);
+                stream.Write(BitConverter.GetBytes((int)contentFileInfos.Length));
+                stream.Write(contentFileInfos);
+                
+                stream.Write(BitConverter.GetBytes((long)ContentFileInfos.Sum(c => c.Size)));
                 var origin = stream.Position;
                 foreach (var contentFileInfo in ContentFileInfos.OrderBy(info => info.StartOffset))
                 {
@@ -140,7 +141,18 @@ namespace Png2RspConverter
             stream.Position = postion;
             return buff;
         }
-    
+
+        static int ReadInt(Stream stream) => BitConverter.ToInt32(ReadBytes(stream, 4));
+
+        static long ReadLong(Stream stream) => BitConverter.ToInt64(ReadBytes(stream, 8));
+
+        static byte[] ReadBytes(Stream stream, long count)
+        {
+            var buff = new byte[count];
+            stream.Read(buff);
+            return buff;
+        }
+
         static T Deserialize<T>(byte[] json)
         {
             var serializer = new DataContractJsonSerializer(typeof(T));
@@ -162,5 +174,6 @@ namespace Png2RspConverter
                 return buff;
             }
         }
+    
     }
 }
