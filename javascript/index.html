@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang='ja'>
+
+<head>
+    <meta charset="utf-8">
+    <title>Png2RspConverter</title>
+</head>
+
+<body>
+    <script src="main.js"></script>
+    <script>
+        async function run()
+        {
+            let thumbnail = document.getElementById("thumbnail").files[0];
+            let images = document.getElementById("images").files
+            let rsp = new RSPObject();
+            await rsp.init(
+                "2D-VFlower", // name: string,
+                new MultiLanguageText("2D-v_flower", "2D-花ちゃん"), // displayName: MultiLanguageText,
+                new MultiLanguageText("", "うぷはしのテスト！"), // displayDescription: MultiLanguageText,
+                ["うぷはし"], // copyrights: Array<string>,
+                thumbnail, // thumbnailFile: File,
+                images, // imageFiles: Array<File>,
+                [
+                    new ActionData("kiri", new MultiLanguageText("kiri", "キリッ"), 0, 0, 0),
+                ], // actions: Array<ActionData>,
+                "kiri", // defaultAction: string,
+                "kiri" //initialAction: string
+            )
+            console.log(rsp);
+            let file = rsp.save("2D-VFlower.rsp");
+            document.getElementById("save").href = URL.createObjectURL(file);
+            document.getElementById("save").download = file.name;
+
+            let reader = new FileReader();
+            reader.addEventListener("onload", () => document.getElementById("thumbnail_preview").src = reader.result);
+            reader.readAsDataURL(thumbnail);
+        }
+    </script>
+
+    <input type="file" id="thumbnail" accept=".png">
+    <input type="file" multiple="multiple" id="images" accept=".png">
+    <button onclick="run()">RUN</button>
+    <a id="save"><button>SAVE</button></a>
+</body>
+
+</html>
