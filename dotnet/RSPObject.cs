@@ -23,24 +23,24 @@ namespace Png2RspConverter
         {
             using(Stream stream = new FileStream(rspFile, FileMode.Open, FileAccess.Read))
             {
-                var rspSignature = ReadBytes(stream, RSP_SIGNATURE.Length);
-                if (!RSP_SIGNATURE.SequenceEqual(rspSignature)) throw new InvalidDataException($"Invalid SIG");
+                var rspSignature = stream.ReadBytes(RSP_SIGNATURE.Length);
+                // if (!RSP_SIGNATURE.SequenceEqual(rspSignature)) throw new InvalidDataException($"Invalid SIG");
         
-                var packerInfoSize = ReadInt(stream);
-                PackerInfo = Deserialize<PackerInfo>(ReadBytes(stream, packerInfoSize));
+                var packerInfoSize = stream.ReadInt();
+                PackerInfo = stream.ReadBytes(packerInfoSize).Deserialize<PackerInfo>();
                 if(PackerInfo.Encrypt) throw new Exception("Encrypted RSP");
 
-                var contentFileInfoSize = ReadInt(stream);
-                ContentFileInfos = Deserialize<List<ContentFileInfo>>(ReadBytes(stream, contentFileInfoSize));
+                var contentFileInfoSize = stream.ReadInt();
+                ContentFileInfos = stream.ReadBytes(contentFileInfoSize).Deserialize<List<ContentFileInfo>>();
 
-                var contentsSize = ReadLong(stream);
+                var contentsSize = stream.ReadLong();
                 foreach (var contentFileInfo in ContentFileInfos)
                 {
-                    var buff = ReadBytes(stream, contentFileInfo.FileSize);
+                    var buff = stream.ReadBytes(contentFileInfo.FileSize);
                     switch(Path.GetExtension(contentFileInfo.Name))
                     {
                         case ".json":
-                            Contents[contentFileInfo.Name] = (buff, Deserialize<MetaData>(buff));
+                            Contents[contentFileInfo.Name] = (buff, buff.Deserialize<MetaData>());
                             break;
                         case ".png":
                             // Directory.CreateDirectory(TMP_DIRECTORY_PATH);
@@ -65,7 +65,7 @@ namespace Png2RspConverter
             var metaData = new MetaData(
                 name, displayName, displayDescription, copyrights,
                 thumbnailFilePath, imageFilePaths, actions, defaultAction, initialAction);
-            Contents[INFO_JSON_FILE_NAME] = (Serialize<MetaData>(metaData), metaData);
+            Contents[INFO_JSON_FILE_NAME] = (metaData.Serialize<MetaData>(), metaData);
             ContentFileInfos.Add(new ContentFileInfo(INFO_JSON_FILE_NAME, Contents[INFO_JSON_FILE_NAME].raw, offset));
             offset += Contents[INFO_JSON_FILE_NAME].raw.Length;
 
@@ -99,11 +99,11 @@ namespace Png2RspConverter
 
                 stream.Write(RSP_SIGNATURE);
                 
-                var packerInfo = Serialize(PackerInfo);
+                var packerInfo = PackerInfo.Serialize();
                 stream.Write(BitConverter.GetBytes((int)packerInfo.Length));
                 stream.Write(packerInfo);
                 
-                var contentFileInfos = Serialize(ContentFileInfos);
+                var contentFileInfos = ContentFileInfos.Serialize();
                 stream.Write(BitConverter.GetBytes((int)contentFileInfos.Length));
                 stream.Write(contentFileInfos);
                 
@@ -114,64 +114,6 @@ namespace Png2RspConverter
                     if(stream.Position - origin != contentFileInfo.StartOffset) throw new Exception("Broken file info list");
                     stream.Write(Contents[contentFileInfo.Name].raw);
                 }
-            }
-        }
-
-        static byte[] TakeWhileSequenceEqual(Stream stream, byte[] pattern)
-        {
-            var contentListData = new List<byte>();
-            while (true)
-            {
-                var sig = Peek(stream, pattern.Length);
-                if (pattern.SequenceEqual(sig))
-                {
-                    break;
-                }
-
-                contentListData.Add((byte)stream.ReadByte());
-            }
-            return contentListData.ToArray();
-        }
-
-        static byte[] Peek(Stream stream, int length)
-        {
-            var postion = stream.Position;
-            var buff = new byte[length];
-            stream.Read(buff);
-            stream.Position = postion;
-            return buff;
-        }
-
-        static int ReadInt(Stream stream) => BitConverter.ToInt32(ReadBytes(stream, 4));
-
-        static long ReadLong(Stream stream) => BitConverter.ToInt64(ReadBytes(stream, 8));
-
-        static byte[] ReadBytes(Stream stream, long count)
-        {
-            var buff = new byte[count];
-            stream.Read(buff);
-            return buff;
-        }
-
-        static T Deserialize<T>(byte[] json)
-        {
-            var serializer = new DataContractJsonSerializer(typeof(T));
-            using(var stream = new MemoryStream(json))
-            {
-                return (T)serializer.ReadObject(stream);
-            }
-        }
-    
-        static byte[] Serialize<T>(T obj)
-        {
-            var serializer = new DataContractJsonSerializer(typeof(T));
-            using(var stream = new MemoryStream())
-            {
-                serializer.WriteObject(stream, obj);
-                var buff = new byte[stream.Position];
-                stream.Position = 0;
-                stream.Read(buff);
-                return buff;
             }
         }
     

@@ -194,7 +194,7 @@ export class RSPObject
 		this.metaData = new MetaData(
 			name, displayName, displayDescription, copyrights,
 			actionsAndImages.flatMap(ai => ai[1]), size,
-			actionsAndImages.map(ai => ai[0]), defaultAction.name, (initialAction ?? defaultAction).name);
+			actionsAndImages.map(ai => ai[0]), defaultAction.name, (initialAction ?? JSON.parse(JSON.stringify(defaultAction))).name);
 		await this.metaData.loadThumbnail(thumbnailFile);
 
 		const metaBin = RSPObject.toByte(this.metaData);

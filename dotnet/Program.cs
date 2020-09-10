@@ -10,53 +10,19 @@ namespace Png2RspConverter
 {
     class Program
     {
-        const string TMP_DIRECTORY_PATH = ".tmp/";
-
         static void Main(string[] args)
         {
-            // Repack();
-            // BuildMK();
-            // BuildVF();
-            new RSPObject("2D-Itako.rsp").Extract(".tmp/");
-
-            // Console.ReadKey();
+            Console.ReadKey();
         }
     
-        static void Repack()
+        static void TestUnpack()
         {
             var rsp = new RSPObject(@"2D-Maki.rsp");
-            var files = rsp.Extract(TMP_DIRECTORY_PATH);
-            rsp.Save(Path.Combine(TMP_DIRECTORY_PATH, "2D-Maki.rsp"));
-        }
-
-        static void BuildMK()
-        {
-            var srcDirectory = "pack/";
-            var rsp = new RSPObject(
-                name: "2D-Maki",
-                displayName: ("2D-Tsurumaki Maki", "2D-弦巻マキ"),
-                displayDescription: ("", "弦巻マキの2Dキャラクターです。"),
-                copyrights: new []{"(C)AHS Co. Ltd."},
-                thumbnailFilePath: @"C:\Users\huser\Desktop\Png2RspConverter\.tmp\thumbnail.png",
-                imageFilePaths: new[]
-                {
-                    @"C:\Users\huser\Desktop\Png2RspConverter\.mk\Maki_01.png",
-                    @"C:\Users\huser\Desktop\Png2RspConverter\.mk\Maki_02.png",
-                    @"C:\Users\huser\Desktop\Png2RspConverter\.mk\Maki_03.png",
-                    @"C:\Users\huser\Desktop\Png2RspConverter\.mk\Maki_04.png",
-                },
-                actions: new []
-                {
-                    new MetaData.ActionData("normal", ("Wait-Normal", "待機"), 0, 1, 2),
-                    new MetaData.ActionData("smile", ("Smile", "喜び"), 2, 3, 2),
-                },
-                defaultAction: "normal",
-                initialAction: "smile");
-            rsp.Save(Path.Combine(srcDirectory, "2D-Maki.rsp"));
-            _ = new RSPObject(Path.Combine(srcDirectory, "2D-Maki.rsp"));
+            var files = rsp.Extract(".tmp/");
+            rsp.Save(Path.Combine(".tmp/", "2D-Maki.rsp"));
         }
     
-        static void BuildVF()
+        static void TestPack()
         {
             var srcDirectory = "pack/";
             var rsp = new RSPObject(
