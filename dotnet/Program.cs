@@ -12,7 +12,20 @@ namespace Png2RspConverter
     {
         static void Main(string[] args)
         {
-            Console.ReadKey();
+            switch(args[0])
+            {
+                case "--unpack":
+                    Unpack(args[1], args[2]);
+                    break;
+                case "--pack":
+                    throw new NotImplementedException();
+            }
+        }
+
+        static void Unpack(string input, string output)
+        {
+            var rsp = new RSPObject(input);
+            var files = rsp.Extract(output);
         }
     
         static void TestUnpack()
