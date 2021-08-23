@@ -141,9 +141,9 @@ namespace Png2RspConverter.Defines
                 var buff = new byte[DIMENSION_BYTE_COUNT];
                 reader.Position = PNG_SIGNATURE_COUNT + IHDR_SIZE_OFFSET;
                 reader.Read(buff);
-                var w = BitConverter.ToInt32(buff.Reverse().ToArray()); // LE
+                var w = BitConverter.ToInt32(buff.Reverse().ToArray(), 0); // LE
                 reader.Read(buff);
-                var h = BitConverter.ToInt32(buff.Reverse().ToArray()); // LE
+                var h = BitConverter.ToInt32(buff.Reverse().ToArray(), 0); // LE
                 return (w, h);
             }
         } 

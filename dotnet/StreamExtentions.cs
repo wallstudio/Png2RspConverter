@@ -33,9 +33,9 @@ namespace Png2RspConverter
             return buff;
         }
 
-        public static int ReadInt(this Stream stream) => BitConverter.ToInt32(ReadBytes(stream, 4));
+        public static int ReadInt(this Stream stream) => BitConverter.ToInt32(ReadBytes(stream, 4), 0);
 
-        public static long ReadLong(this Stream stream) => BitConverter.ToInt64(ReadBytes(stream, 8));
+        public static long ReadLong(this Stream stream) => BitConverter.ToInt64(ReadBytes(stream, 8), 0);
 
         public static byte[] ReadBytes(this Stream stream, long count)
         {
@@ -65,5 +65,8 @@ namespace Png2RspConverter
                 return buff;
             }
         }
+
+        public static void Write(this Stream stream, byte[] bin) => stream.Write(bin, 0, bin.Length);
+        public static void Read(this Stream stream, byte[] bin) => stream.Read(bin, 0, bin.Length);
     }
 }
