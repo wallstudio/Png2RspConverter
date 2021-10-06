@@ -5,6 +5,9 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using Png2RspConverter.Defines;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Drawing.Processing;
 
 namespace Png2RspConverter
 {
@@ -19,6 +22,16 @@ namespace Png2RspConverter
                     break;
                 case "--pack":
                     throw new NotImplementedException();
+                case "--composite":
+                    // "args": [
+                    //     "--composite",
+                    //     "output/composite.png",
+                    //     ".composoteSampleImage/default_n.png.rdi",
+                    //     ".composoteSampleImage/action10_n.png.rdi",
+                    //     ".composoteSampleImage/action10_o.png.rdi"
+                    // ],
+                    Composite(args[1], args.Skip(2).ToArray());
+                    break;
             }
         }
 
@@ -28,6 +41,26 @@ namespace Png2RspConverter
             var files = rsp.Extract(output);
         }
     
+        static void Composite(string output, string[] inputs)
+        {
+            if(inputs.Any(path => Path.GetExtension(path) != ".rdi")) throw new Exception("not format RDI");
+
+            using var baseStream = new FileStream(inputs.First(), FileMode.Open);
+            baseStream.Position += 5; // 謎の5Byte
+            using var @base = Image.Load(baseStream);
+
+            foreach (var diffPath in inputs.Skip(1))
+            {
+                using var diffStream = new FileStream(diffPath, FileMode.Open);
+                diffStream.Position += 5; // 謎の5Byte
+                using var diff = Image.Load(diffStream);
+
+                @base.Mutate(ctx => ctx.DrawImage(diff, 1));
+            }
+
+            @base.SaveAsPng(output);
+        }
+
         static void TestUnpack()
         {
             var rsp = new RSPObject(@"2D-Maki.rsp");
