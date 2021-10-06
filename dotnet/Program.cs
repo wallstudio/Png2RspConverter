@@ -8,6 +8,7 @@ using Png2RspConverter.Defines;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
+using System.Reflection;
 
 namespace Png2RspConverter
 {
@@ -32,6 +33,13 @@ namespace Png2RspConverter
                     // ],
                     Composite(args[1], args.Skip(2).ToArray());
                     break;
+                case "--third-party-notices":
+                    using (var sr = new StreamReader(Assembly.GetExecutingAssembly().GetManifestResourceStream("THIRD-PARTY-NOTICES")))
+                    {
+                        Console.WriteLine(sr.ReadToEnd());
+                    }
+                    break;
+
             }
         }
 
