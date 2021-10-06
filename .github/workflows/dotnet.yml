@@ -25,3 +25,9 @@ jobs:
     - name: build
       run: .\build.bat
       working-directory: dotnet
+
+    - name: Archive
+      uses: actions/upload-artifact@v2
+      with:
+        name: Png2RspConverter
+        path: dotnet/output
